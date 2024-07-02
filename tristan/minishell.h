@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+//structure qui sert à la création du tableau de départ
 typedef struct s_token
 {
     int                 index; //position du token
@@ -22,20 +23,44 @@ typedef struct s_token
     struct s_token      *next;
 }   t_token;
 
-typedef struct s_commands
+//liste de structures principale des commandes
+typedef struct s_command
 {
-    char                *name;
-    int                 option;
-    int                 argument;
-    struct s_commands   *next;
-}   t_commands;
+    char                **cmd;
 
-//init_commands
-t_commands  *init_list();
-t_commands  *init_echo();
-t_commands  *init_cd();
-t_commands  *init_pwd();
-t_commands  *init_export();
-t_commands  *init_unset();
-t_commands  *init_env();
-t_commands  *init_exit();
+    int                 input;
+    int                 output;
+
+    struct s_command   *prev;
+    struct s_command   *next;
+}   t_command;
+
+//main.c
+int main(int argc, char **argv);
+void    parse(char *line);
+
+//create_tab.c
+char    ***fill_tab(char *line);
+int     size_tab(char *line, t_token **token_list);
+int     init_size(char *cursor);
+int     search_token(char *cursor);
+void    maj_list(t_token **token_list, int token, char *line, char *cursor);
+int     size_line(char *line, t_token *token_list, int *x);
+int     check_token(int i, t_token *token_list);
+void    fill_lines(char ***commands, char *line, t_token *token_list, int size);
+int     len_word(char *line);
+void    fill_words(char **commands, int x, int i, char *line);
+
+//init_list.c
+t_command *init_list(char ***tab);
+int     maj_list_data(t_command *list, int i, char ***tab);
+void    add_cmd(t_command *list, char **cmd);
+t_command *last_element(t_command *list);
+t_command   *create_element(char **cmd);
+int     type_command(char **tab);
+int     size_cmd(char **tab);
+
+//libft.c
+int	ft_strlen(const char *s);
+int     ft_strcmp(unsigned char *str1, unsigned char *str2);
+
