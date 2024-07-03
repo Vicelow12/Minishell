@@ -102,6 +102,16 @@ int     search_token(char *cursor)
     }
     if (*cursor == '>' || *cursor == '<' || *cursor == '|')
     {
+        if (*cursor == '>' && *second_char == '<')
+        {
+            printf("syntax error near unexpected token '<'\n");
+            exit (0);
+        }
+        if (*cursor == '<' && *second_char == '>')
+        {
+            printf("syntax error near unexpected token '>'\n");
+            exit (0);
+        }
         if (*cursor == '|' && *second_char == '|') //token invalid '||'
         {
             printf("invalid token\n");
@@ -209,6 +219,7 @@ void    fill_lines(char ***commands, char *line, t_token *token_list, int size)
     {
         //printf("x : %d / size : %d\n", x, size);
         previous_i = i;
+        //printf("Données sizeline : %d\n", i);
         size_l = size_line(line, token_list, &i);
         //printf("taille commande : %d\n", size_l);
         commands[x] = malloc(sizeof (char *) * (size_l + 1));
@@ -237,7 +248,9 @@ int     len_word(char *line)
         i++;
         return (i);
     }
-    while (line[i] != ' ' && line[i] != '\0')
+    if (search_token(&line[i]) > 0)
+        return (search_token(&line[i]));
+    while (line[i] != ' ' && line[i] != '\0' && search_token(&line[i]) == 0)
         i++;
     return (i);
 }
@@ -252,20 +265,23 @@ void    fill_words(char **commands, int x, int i, char *line)
     while (x < i)
     {
         //printf("de %d à %d\n", x, i);
-        while (line[x] == ' ')
+        while (line[x] == ' ') //ajouter autres espaces possibles
             x++;
+        //printf("index : %d\n", x);
         len = len_word(&line[x]);
         //printf("lenword : %d\n", len);
         commands[y] = malloc (sizeof (char) * (len + 1));
         k = 0;
         while (k < len)
         {
+            //printf("char : &%d&\n", line[x]);
             commands[y][k] = line[x];
             k++;
             x++;
         }
         commands[y][k] = '\0';
         y++;
+        x++;
     }
     return ;
 }

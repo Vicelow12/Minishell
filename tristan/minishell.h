@@ -35,6 +35,10 @@ typedef struct s_command
     struct s_command   *next;
 }   t_command;
 
+//tests.c
+void    print_list(t_token *list);
+void    print_tab(char ***tab);
+
 //main.c
 int main(int argc, char **argv);
 void    parse(char *line);

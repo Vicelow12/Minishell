@@ -31,12 +31,13 @@ void    print_tab(char ***tab)
     while (tab[x] != NULL)
     {
         y = 0;
+        printf("Cmd n°%x\n", x);
         while (tab[x][y] != NULL)
         {
-            printf(" %s", tab[x][y]);
+            printf("Mot %d : $%s$ ", y, tab[x][y]);
             y++;
         }
-        printf("$\n");
+        printf("\n");
         x++;
     }
 }
