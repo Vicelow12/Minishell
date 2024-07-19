@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tcharbon <tcharbon@stud42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/06/11 14:36:52 by tcharbon          #+#    #+#             */
-/*   Updated: 2024/06/11 14:36:52 by tcharbon         ###   ########.fr       */
+/*   Created: 2024/07/09 02:49:45 by tcharbon          #+#    #+#             */
+/*   Updated: 2024/07/09 02:49:45 by tcharbon         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,57 +14,46 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-//structure qui sert à la création du tableau de départ
-typedef struct s_token
-{
-    int                 index; //position du token
-    int                 type; //son type/taille ('>>' = 2, '|' = 1)
-    int                 saved;
-    struct s_token      *next;
-}   t_token;
-
-//liste de structures principale des commandes
-typedef struct s_command
+//liste de structures principale
+typedef struct s_parsing
 {
     char                **cmd;
 
     int                 input;
     int                 output;
+    int                 type;
 
-    struct s_command   *prev;
-    struct s_command   *next;
-}   t_command;
-
-//tests.c
-void    print_list(t_token *list);
-void    print_tab(char ***tab);
+    struct s_parsing   *prev;
+    struct s_parsing   *next;
+}   t_parsing;
 
 //main.c
-int main(int argc, char **argv);
+int     main(int argc, char **argv, char **env);
 void    parse(char *line);
 
-//create_tab.c
-char    ***fill_tab(char *line);
-int     size_tab(char *line, t_token **token_list);
-int     init_size(char *cursor);
-int     search_token(char *cursor);
-void    maj_list(t_token **token_list, int token, char *line, char *cursor);
-int     size_line(char *line, t_token *token_list, int *x);
-int     check_token(int i, t_token *token_list);
-void    fill_lines(char ***commands, char *line, t_token *token_list, int size);
-int     len_word(char *line);
-void    fill_words(char **commands, int x, int i, char *line);
+//tests.c
+void    print_list(t_parsing *list);
 
 //init_list.c
-t_command *init_list(char ***tab);
-int     maj_list_data(t_command *list, int i, char ***tab);
-void    add_cmd(t_command *list, char **cmd);
-t_command *last_element(t_command *list);
-t_command   *create_element(char **cmd);
-int     type_command(char **tab);
-int     size_cmd(char **tab);
+t_parsing   *init_list(char *line);
+int     pass_quote(char *line, int i, int mode);
+int     search_sep(char *cursor);
+int     save_element(char *line, int x, int i, t_parsing **list);
+char    *extract_str(char *line, int x, int i);
+char    *extract_sep(char *line, int i);
+void    add_element(t_parsing **list, char *str);
+t_parsing   *init_element(char *str);
+t_parsing *last_element(t_parsing *list);
+char    **split_cmd(char *str);
+int     count_words(char *str);
+void    fill_tab(char ***tab_ptr, int size, char *str);
+char    *extract_word(char *str);
+void    type_list(t_parsing *list);
+void    find_sep(t_parsing *list);
+void    check_double_sep(t_parsing *list);
+void    find_file(t_parsing *list);
+void    complete_type(t_parsing *list);
 
 //libft.c
-int	ft_strlen(const char *s);
 int     ft_strcmp(unsigned char *str1, unsigned char *str2);
-
+int     size_cmd(char **tab);

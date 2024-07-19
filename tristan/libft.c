@@ -5,25 +5,10 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tcharbon <tcharbon@stud42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/07/02 13:11:24 by tcharbon          #+#    #+#             */
-/*   Updated: 2024/07/02 13:11:24 by tcharbon         ###   ########.fr       */
+/*   Created: 2024/07/10 18:06:09 by tcharbon          #+#    #+#             */
+/*   Updated: 2024/07/10 18:06:09 by tcharbon         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
-
-#include "minishell.h"
-
-int	ft_strlen(const char *s)
-{
-	int	i;
-
-	if (!s)
-		return (0);
-	i = 0;
-	while (s[i] != '\0')
-		i++;
-	return (i);
-}
-
 
 int     ft_strcmp(unsigned char *str1, unsigned char *str2)
 {
@@ -38,4 +23,14 @@ int     ft_strcmp(unsigned char *str1, unsigned char *str2)
             return (0);
     }
     return (1);
+}
+
+int     size_cmd(char **tab)
+{
+    int i;
+
+    i = 0;
+    while (tab[i])
+        i++;
+    return (i);
 }
