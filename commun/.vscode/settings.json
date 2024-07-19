@@ -1,0 +1,6 @@
+{
+	"files.associations": {
+		"readline.h": "c",
+		"signal.h": "c"
+	}
+}
