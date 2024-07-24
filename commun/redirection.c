@@ -88,13 +88,11 @@ int setup_in_out(t_parsing *command_list)
 	{
 		if (ft_strcmp(temp->cmd[0], ">") == 1 || ft_strcmp(temp->cmd[0], ">>") == 1)
         {
-            printf(">");
 			if (!handle_redirection_output(temp))
                 return (0);
         } 
         else if (ft_strcmp(temp->cmd[0], "<") == 1 || ft_strcmp(temp->cmd[0], "<<") == 1)
         {
-            printf("<");
 			if (!handle_redirection_input(temp))
                 return (0);
         } 

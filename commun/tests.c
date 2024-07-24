@@ -23,4 +23,5 @@ void    print_list(t_parsing *head)
         printf("\nInput: %d, Output: %d, Type: %d\n", temp->input, temp->output, temp->type);
         temp = temp->next;
     }
+    printf("-----------------------\n");
 }

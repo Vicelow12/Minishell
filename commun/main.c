@@ -19,7 +19,8 @@ void    parse(char *line)
 
     list = init_list(line);
     type_list(list);
-
+    print_list(list);
+    check_file(list);
     setup_in_out(list);
     print_list(list);
     return ;

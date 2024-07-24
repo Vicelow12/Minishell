@@ -18,6 +18,7 @@
 #include <string.h>
 #include <readline/history.h>
 #include <signal.h>
+
 //liste de structures principale
 typedef struct s_parsing
 {
@@ -62,6 +63,7 @@ void    complete_type(t_parsing *list);
 int     ft_strcmp(unsigned char *str1, unsigned char *str2);
 int     size_cmd(char **tab);
 int	    ft_str_is_space(char *str);
+size_t	ft_strlen(const char *s);
 
 //redirection.c
 t_parsing* find_command_backward(t_parsing *node);
@@ -70,3 +72,13 @@ int handle_redirection_output(t_parsing *temp);
 int handle_redirection_input(t_parsing *temp);
 int handle_pipe(t_parsing *temp);
 int setup_in_out(t_parsing *command_list);
+
+//check_file
+void    check_file(t_parsing *list);
+void    new_cmd(t_parsing *file);
+char    **fill_new_cmd(char **file_tab);
+void    new_args(t_parsing *cmd, t_parsing *file);
+char    **fill_tab_cmd(char **cmd, char **file);
+char    **fill_tab_file(char **file);
+void    free_tab(char **tab);
+void    fill(char ***tab_to_fill, int i, char **origin_tab, int x);
