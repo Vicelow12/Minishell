@@ -5,66 +5,53 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tcharbon <tcharbon@stud42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/07/09 02:48:58 by tcharbon          #+#    #+#             */
-/*   Updated: 2024/07/09 02:48:58 by tcharbon         ###   ########.fr       */
+/*   Created: 2024/08/05 17:14:17 by tcharbon          #+#    #+#             */
+/*   Updated: 2024/08/05 17:14:17 by tcharbon         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
 
-//Noeud parsing
-void    parse(char *line)
+int parse(t_tools *tools)
 {
-    t_parsing  *list;
-
-    list = init_list(line);
-    type_list(list);
-    print_list(list);
-    check_file(list);
-    setup_in_out(list);
-    print_list(list);
-    return ;
+    if (init_list(tools, tools->line) == 0)             //tri la ligne d'entrée dans une liste chaînée (split par token puis par espace)
+        return (0);                                        //Si renvoi (0) c'est que des quotes sont pas fermées : message d'erreur + reset (mais pas d'exit total)
+    if (type_list(tools->list_cmd) == 0)                //Définition des types (0-NC, 4-cmd, 2-file, 3-pipe, 1-redir, 5-delim)
+        return (0);                                          //Si renvoi 0, erreur de syntaxe (2 token à coté) : message d'erreur + reset (mais pas d'exit total)
+    check_file(tools, tools->list_cmd);                //On check les file à plusieurs mots : cela signifie que des mots sont à replacer
+    if (setup_in_out(tools->list_cmd) == 0)              //on assigne les valeurs in et out de chaque élement cmd
+        return (0);                                         //si renvoi 0, erreur d'open file
+    print_list(tools->list_cmd);
+    return (1);
 }
 
-void sigint_handler(int signo) 											//gere ctr-c
+int main(int argc, char **argv, char **envp)
 {
-	if (signo == SIGINT)
-	{
-		printf("\n");
-		rl_replace_line("", 0); 										//efface ligne actuelle
-		rl_on_new_line();												//indique a readline de commencer une nouvelle ligne
-		rl_redisplay();													//reaffiche minishell :
-	}
-}
+    t_tools     *tools;                            //structure globale
 
-void sigquit_handler(int signo)											/* gere Ctrl-\ */
-{
-    // Ne rien faire pour ignorer le signal
-}
-
-//lancement du shell, attente de saisie utilisateur
-int main(int argc, char **argv, char **env)
-{
-    char    *line;
-
-	signal(SIGINT, sigint_handler);
+    signal(SIGINT, sigint_handler);
 	signal(SIGQUIT, sigquit_handler);
     if (argc > 1)
         return (0);
+    tools = init_tools(envp);                      //initialisation de la structure globale
     while (1)
     {
-        line = readline("MiniShell> ");
-        if (line == NULL)
-            exit(0);
-		if (strlen(line) > 0 && ft_str_is_space(line) == 0)                 // si lentree n est pas vide ni rempli d espace ajoute a l historique
-		    add_history(line);
-        // if (ft_strcmp(line, "") == 0 || ft_str_is_space(line) == 1)
-        // {
-		//     free(line);														// besoin de free ?
-        //     continue;														// repete la boucle sans parse
-        // }	
-        parse(line);
-		free(line); 
+        tools->line = readline("MiniShell> ");
+        if (tools->line == NULL)
+            ft_exit(tools, NULL, NULL);
+        if (tools->line[0] == '\0' || ft_str_is_space(tools->line) == 1)
+            free(tools->line);
+        else
+        {
+            add_history(tools->line); //a secure ?
+            if (parse(tools) != 0)
+            {
+                //exec des commandes
+            }
+            else
+                ft_reset(tools);   
+        }
     }
+    //free_total
     return (1);
 }

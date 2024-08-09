@@ -5,398 +5,132 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tcharbon <tcharbon@stud42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/07/09 02:52:18 by tcharbon          #+#    #+#             */
-/*   Updated: 2024/07/09 02:52:18 by tcharbon         ###   ########.fr       */
+/*   Created: 2024/08/05 17:55:01 by tcharbon          #+#    #+#             */
+/*   Updated: 2024/08/05 17:55:01 by tcharbon         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
 
-t_parsing   *init_list(char *line)
+int    init_list(t_tools *tools, char *line)   //tri la ligne d'entrée dans une liste chaînée (split par token puis par espace)
 {
-    t_parsing   *list;
     int         i;
     int         x;
 
     i = 0;
     x = 0;
-    list = NULL;
     while (line[i] != '\0')
     {
-        if (line[i] == '"' || line[i] == '\'')
+        if ((line[i] == '"' || line[i] == '\'') && is_protect(line, i) != 1)
             i = pass_quote(line, i, 1);
-        else if (search_sep(&line[i]) > 0)
+        if (i < 0)
+            return (0);
+        else if (search_sep(line, i) > 0)
         {
-            i = save_element(line, x, i, &list);
+            i = save_element(tools, x, i);                 //on vient de trouver une séparateur/token ce qui nous donne un segment à traiter
             x = i;
         }
         else
             i++;
     }
-    save_element(line, x, i, &list);
-    return (list);
-}
-
-int     pass_quote(char *line, int i, int mode)
-{
-    char    quote;
-    int     index;
-
-    index = i;
-    quote = line[i];
-    i++;
-    while (line[i] != quote)
-    {
-        if (line[i] == '\0')
-        {
-            printf("Error : unclosed quotes\n");
-            exit (0);
-        }
-        i++;
-    }
-    i++;
-    if (mode == 1)
-        return (i);
-    else
-        return (i - index);
+    save_element(tools, x, i);                         //dernier segment de la ligne
+    return (1);
 }
 
 //renvoi 1 ou 2 si le curseur est sur un separateur, sinon 0
-//à modifier pour vérifier si char d'avant est une protection '\' ?
-int     search_sep(char *cursor)
+int     search_sep(char *line, int i)
 {
-    char    *second_char;
-    char    *third_char;
-
-    if (*cursor == '\0')
+    if (line == NULL || line[i] == '\0')
         return (0);
-    second_char = cursor + 1;
-    third_char = cursor + 2;
-    if ((*cursor == '<' && *second_char == '<') || (*cursor == '>' && *second_char == '>'))
-    {
-        if (*second_char == *third_char) //separateur invalid : '>>>' ou '<<<' (important vu qu'on parcourt la ligne char par char)
-        {
-            printf("syntax error near unexpected token '%c'\n", *third_char);
-            exit (0);
-        }
-        return (2);
-    }
-    if (*cursor == '>' || *cursor == '<' || *cursor == '|')
-    {
-        if (*cursor == '>' && *second_char == '<')
-        {
-            printf("syntax error near unexpected token '<'\n");
-            exit (0);
-        }
-        if (*cursor == '<' && *second_char == '>')
-        {
-            printf("syntax error near unexpected token '>'\n");
-            exit (0);
-        }
-        if (*cursor == '|' && *second_char == '|') //separateur invalid '||'
-        {
-            printf("syntax error near unexpected token '|'\n");
-            exit (0);
-        }
+    if (line[i] == '|' && is_protect(line, i) != 1)
         return (1);
+    if (line[i] == '<' && is_protect(line, i) != 1)
+    {
+        if (line[i + 1] == '<')
+            return (2);
+        else
+            return (1);
+    }
+    if (line[i] == '>' && is_protect(line, i) != 1)
+    {
+        if (line[i + 1] == '>')
+            return (2);
+        else
+            return (1);
     }
     return (0);
 }
 
-int     save_element(char *line, int x, int i, t_parsing **list)
+int     save_element(t_tools *tools, int x, int i)  //on enregistre le segment de x à i
 {
     char    *element;
     char    *sep;
     int     index;
 
-    element = extract_str(line, x, i);
-    sep = extract_sep(line, i);
+    search_var_env(tools, x, i);                        //on check si il y a une variable d'environnement dans ce segment
+    element = extract_str(tools, x, i);                 //on récupère le contenu du segment à traiter
+    sep = extract_sep(tools, i, element);               //on récupère le token/séparateur du segment
     if (element != NULL)
-        add_element(list, element);
+        add_element(tools, &tools->list_cmd, element, sep);
     if (sep != NULL)
-        add_element(list, sep);
-    index = i + search_sep(&line[i]);
+        add_element(tools, &tools->list_cmd, sep, element);
+    free(element);
+    free(sep);
+    index = i + search_sep(tools->line, i);
+    tools->size_var_env = 0;
     return (index);
 }
 
-char    *extract_str(char *line, int x, int i)
+char    *extract_str(t_tools *tools, int x, int i)  //On recupére le contenu du segment et on remplace les variables d'environnement si il y en a
 {
     char    *str;
     int     y;
     int     size;
+    int     k;
 
     y = 0;
-    size = i - x;
-    if (size == 0)
+    size = i - x + tools->size_var_env;     //On calcule la taille du contenu du segment avec l'intervalle (i et x) + la différence causée par la variable d'environnement
+    if (size <= 0)
         return (NULL);
     str = malloc(sizeof (char) * (size + 1));
     if (str == NULL)
-        exit (0);
-    while (x != i)
+        ft_exit(tools, NULL, NULL);
+    while (y < size)
     {
-        str[y] = line[x];
-        y++;
-        x++; 
+        if (tools->line[x] == '$' && is_protect(tools->line, x) != 1 )   //si on croise un '$' on va copier le contenu de la variable
+            tools->list_var = get_var(&str, &y, &x, tools->list_var);
+        else 
+        {
+            str[y] = tools->line[x];
+            y++;
+            x++;
+        }
     }
     str[y] = '\0';
+    if (ft_str_is_space(str) == 1)
+        return (NULL);
     return (str);
 }
 
-char    *extract_sep(char *line, int i)
+char    *extract_sep(t_tools *tools, int i, char *str)     //on récupère le séparateur
 {
     char    *sep;
     int     size;
     int     y;
-    
-    size = search_sep(&line[i]);
+
+    size = search_sep(tools->line, i); //nous renvoi 1 ou 2, la taille du séparateur
     if (size == 0)
         return (NULL);
     sep = malloc (sizeof (char) * (size + 1));
     if (sep == NULL)
-        exit (0);
+        ft_exit(tools, str, NULL);
     y = 0;
     while (y < size)
     {
-        sep[y] = line[i];
+        sep[y] = tools->line[i];
         y++;
         i++;
     }
     sep[y] = '\0';
     return (sep);
-}
-
-void    add_element(t_parsing **list, char *str)
-{
-    t_parsing   *element;
-    t_parsing   *last;
-
-    element = init_element(str);
-    if ((*list) == NULL)
-        (*list) = element;
-    else
-    {
-        last = last_element((*list));
-        element->prev = last;
-        last->next = element;
-    }
-    return ;
-}
-
-t_parsing   *init_element(char *str)
-{
-    t_parsing   *element;
-    
-    if (str == NULL)
-        return (NULL);
-    element = malloc (sizeof (t_parsing));
-    if (element == NULL)
-        exit (0);
-    element->cmd = split_cmd(str);
-    element->input = 0;
-    element->output = 0;
-    element->type = 0;
-    element->next = NULL;
-    element->prev = NULL;
-    return (element);
-}
-
-t_parsing *last_element(t_parsing *list)
-{
-    t_parsing *index;
-
-    index = list;
-    while (index->next != NULL)
-        index = index->next;
-    return (index);
-}
-
-char    **split_cmd(char *str)
-{
-    char    **tab;
-    int     size;
-
-    size = count_words(str);
-    tab = malloc (sizeof (char *) * (size + 1));
-    if (tab == NULL)
-        exit (0);
-    fill_tab(&tab, size, str);
-    return (tab);
-}
-
-int     count_words(char *str)
-{
-    int     size;
-    int     i;
-
-    if (!str)
-        return (0);
-    i = 0;
-    if (str[i] != ' ')
-    {
-        size = 1;
-        while (str[i] != ' ' && str[i] != '\0')
-            i++;
-    }
-    else
-        size = 0;
-    while (str[i] != '\0')
-    {
-        while (str[i] == ' ')
-            i++;
-        if (str[i] != '\0')
-        {
-            size++;
-            if (str[i] == '"' || str[i] == '\'')
-                i = pass_quote(str, i, 1);
-            else
-            {
-                while (str[i] != ' ' && str[i] != '\0')
-                    i++;
-            }
-        }
-    }
-    return (size);
-}
-
-void    fill_tab(char ***tab_ptr, int size, char *str)
-{
-    char    **tab;
-    int     k;
-    int     i;
-
-    tab = (*tab_ptr);
-    k = 0;
-    i = 0;
-    while (k < size)
-    {
-        while (*str == ' ')
-            str += 1;
-        tab[k] = extract_word(str);
-        while (*str != ' ' && *str != '\0')
-            str += 1;
-        k++;
-    }
-    tab[k] = NULL;
-    return ;
-}
-
-char    *extract_word(char *str)
-{
-    char    *word;
-    int     size;
-    int     i;
-
-    if (!str)
-        return (NULL);
-    size = 0;
-    while (str[size] != ' ' && str[size] != '\0')
-    {
-        if (str[size] == '"' || str[size] == '\'')
-            size += pass_quote(str, size, 2);
-        else
-            size++;
-    }
-    word = malloc (sizeof (char) * (size + 1));
-    if (word == NULL)
-        exit (0);
-    i = 0;
-    while (i < size)
-    {
-        word[i] = str[i];
-        i++;
-    }
-    word[i] = '\0';
-    return (word);
-}
-
-// 0-NC, 4-cmd, 2-file, 3-pipe, 1-redir, 5-delim
-void    type_list(t_parsing *list)
-{
-    find_sep(list);
-    check_double_sep(list);
-    find_file(list);
-    complete_type(list);
-    return ;
-}
-
-void    find_sep(t_parsing *list)
-{
-    t_parsing   *index;
-
-    index = list;
-    while (index != NULL)
-    {
-        if (size_cmd(index->cmd) != 1)
-            index = index->next;
-        else 
-        {
-            if (ft_strcmp(index->cmd[0], ">>") == 1 || ft_strcmp(index->cmd[0], "<<") == 1
-                || ft_strcmp(index->cmd[0], ">") == 1 || ft_strcmp(index->cmd[0], "<") == 1)
-                index->type = 1;
-            else if (ft_strcmp(index->cmd[0], "|") == 1)
-                index->type = 3;
-            index = index->next;
-        }
-    }
-    return ;
-}
-
-void    check_double_sep(t_parsing *list)
-{
-    t_parsing   *index;
-
-    index = list;
-    while (index != NULL)
-    {
-        if (index->type == 1 || index->type == 3 || index->type == 5)
-        {
-            index = index->next;
-            if (index->type == 1 || index->type == 3 || index->type == 5)
-            {
-                printf("syntax error near unexpected token '%s'\n", index->cmd[0]);
-                exit(0);
-            }
-        }
-        index = index->next;
-    }
-    return ;
-}
-
-void    find_file(t_parsing *list)
-{
-    t_parsing   *index;
-
-    index = list;
-    while (index != NULL)
-    {
-        if (index->type == 1)
-        {
-            if (ft_strcmp(index->cmd[0], ">>") == 1 || ft_strcmp(index->cmd[0], ">") == 1 || ft_strcmp(index->cmd[0], "<") == 1)
-            {
-                index = index->next;
-                index->type = 2;
-            }
-            else if (ft_strcmp(index->cmd[0], "<<") == 1)
-            {
-                index = index->next;
-                index->type = 5;
-            }
-        }
-        index = index->next;
-    }
-    return ;
-}
-
-void    complete_type(t_parsing *list)
-{
-    t_parsing   *index;
-
-    index = list;
-    while (index != NULL)
-    {
-        if (index->type == 0)
-            index->type = 4;
-        index = index->next;
-    }
-    return ;
 }
