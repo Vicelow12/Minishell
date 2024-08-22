@@ -5,101 +5,132 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tcharbon <tcharbon@stud42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/07/02 15:12:38 by tcharbon          #+#    #+#             */
-/*   Updated: 2024/07/02 15:12:38 by tcharbon         ###   ########.fr       */
+/*   Created: 2024/08/05 17:55:01 by tcharbon          #+#    #+#             */
+/*   Updated: 2024/08/05 17:55:01 by tcharbon         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
 
-//compte le nb de mots dans la ligne du tab
-int     size_cmd(char **tab)
+int    init_list(t_tools *tools, char *line)   //tri la ligne d'entrée dans une liste chaînée (split par token puis par espace)
 {
-    int i;
+    int         i;
+    int         x;
 
     i = 0;
-    while (tab[i])
-        i++;
-    return (i);
+    x = 0;
+    while (line[i] != '\0')
+    {
+        if ((line[i] == '"' || line[i] == '\'') && is_protect(line, i) != 1)
+            i = pass_quote(line, i, 1);
+        if (i < 0)
+            return (0);
+        else if (search_sep(line, i) > 0)
+        {
+            i = save_element(tools, x, i);                 //on vient de trouver une séparateur/token ce qui nous donne un segment à traiter
+            x = i;
+        }
+        else
+            i++;
+    }
+    save_element(tools, x, i);                         //dernier segment de la ligne
+    return (1);
 }
 
-//determine le type de la ligne
-int     type_command(char **tab)
+//renvoi 1 ou 2 si le curseur est sur un separateur, sinon 0
+int     search_sep(char *line, int i)
 {
-    if (size_cmd(tab) > 1) //si plusieurs mots dans la ligne = cmd car pipe et redirection  = 1 mot
-        return (1);
-    if (ft_strcmp(tab[0], ">>") == 1 || ft_strcmp(tab[0], "<<") == 1 || ft_strcmp(tab[0], "|") == 1) //si 1 mot, on vérifie si c'est pipe/redir 
+    if (line == NULL || line[i] == '\0')
         return (0);
-    return (1); //sinon c'est une commande à 1 mot
+    if (line[i] == '|' && is_protect(line, i) != 1)
+        return (1);
+    if (line[i] == '<' && is_protect(line, i) != 1)
+    {
+        if (line[i + 1] == '<')
+            return (2);
+        else
+            return (1);
+    }
+    if (line[i] == '>' && is_protect(line, i) != 1)
+    {
+        if (line[i + 1] == '>')
+            return (2);
+        else
+            return (1);
+    }
+    return (0);
 }
 
-//malloc et initialise les données d'un élement
-t_command   *create_element(char **cmd)
+int     save_element(t_tools *tools, int x, int i)  //on enregistre le segment de x à i
 {
-    t_command *element;
-    
-    element = malloc (sizeof (t_command));
-    if (element == NULL)
-        return (NULL);
-    element->cmd = cmd; //la liste de mots : commande + option + arguments
-    element->input = 0; //entrée standard par défaut
-    element->output = 1; //sortie standard par défaut
-    element->prev = NULL; 
-    element->next = NULL;
-    return (element);
-}
+    char    *element;
+    char    *sep;
+    int     index;
 
-//renvoi un pointeur sur le dernier élement de la liste
-t_command *last_element(t_command *list)
-{
-    t_command *index;
-
-    index = list;
-    while (index->next != NULL)
-        index = index->next;
+    search_var_env(tools, x, i);                        //on check si il y a une variable d'environnement dans ce segment
+    element = extract_str(tools, x, i);                 //on récupère le contenu du segment à traiter
+    sep = extract_sep(tools, i, element);               //on récupère le token/séparateur du segment
+    if (element != NULL)
+        add_element(tools, &tools->list_cmd, element, sep);
+    if (sep != NULL)
+        add_element(tools, &tools->list_cmd, sep, element);
+    free(element);
+    free(sep);
+    index = i + search_sep(tools->line, i);
+    tools->size_var_env = 0;
     return (index);
 }
 
-//ajoute un élement à la liste chaînée
-void    add_cmd(t_command *list, char **cmd)
+char    *extract_str(t_tools *tools, int x, int i)  //On recupére le contenu du segment et on remplace les variables d'environnement si il y en a
 {
-    t_command *index;
-    
-    if (list == NULL)
-        list = create_element(cmd);
-    else
+    char    *str;
+    int     y;
+    int     size;
+    int     k;
+
+    y = 0;
+    size = i - x + tools->size_var_env;     //On calcule la taille du contenu du segment avec l'intervalle (i et x) + la différence causée par la variable d'environnement
+    if (size <= 0)
+        return (NULL);
+    str = malloc(sizeof (char) * (size + 1));
+    if (str == NULL)
+        ft_exit(tools, NULL, NULL);
+    while (y < size)
     {
-        index = last_element(list);
-        index->next = create_element(cmd);
-        (index->next)->prev = index;
+        if (tools->line[x] == '$' && is_protect(tools->line, x) != 1 )   //si on croise un '$' on va copier le contenu de la variable
+            tools->list_var = get_var(&str, &y, &x, tools->list_var);
+        else 
+        {
+            str[y] = tools->line[x];
+            y++;
+            x++;
+        }
     }
+    str[y] = '\0';
+    if (ft_str_is_space(str) == 1)
+        return (NULL);
+    return (str);
 }
 
-//va mettre à jour les infos de la liste (pipe, redirections, etc...)
-int     maj_list_data(t_command *list, int i, char ***tab)
+char    *extract_sep(t_tools *tools, int i, char *str)     //on récupère le séparateur
 {
-    //si c'est un pipe, mettre à jour l'output de l'élement/commande (i - 1) et l'input de l'élement/commande (i + 1)
-    //si c'est une redirection '>>', mettre à jour l'output de l'élement (i - 1) vers le fichier (i + 1) (fonction open)
-    //si c'est une redirection '>', pareil mais ça écrase le contenu du fichier s'il existe au lieu d'ajouter à la fin.
-    //si c'est une redirection '<<', truc chelou ou la commande (i - 1) va prendre en input tout ce que l'utilisateur écrit dans le terminal jusqu'à que le délimiteur (i + 1) soit rentré
-    //si c'est une redirection '<', la commande (i - 1) prend en input le contenu du fichier (i + 1)
-}
+    char    *sep;
+    int     size;
+    int     y;
 
-//création de la liste chaînée principale
-t_command *init_list(char ***tab)
-{
-    t_command   *list;
-    int         i;
-
-    list = NULL;
-    i = 0;
-    while (tab[i])
+    size = search_sep(tools->line, i); //nous renvoi 1 ou 2, la taille du séparateur
+    if (size == 0)
+        return (NULL);
+    sep = malloc (sizeof (char) * (size + 1));
+    if (sep == NULL)
+        ft_exit(tools, str, NULL);
+    y = 0;
+    while (y < size)
     {
-        if (type_command(tab[i]) == 1) //si la ligne correspond à une commande on ajoute un élement à la liste
-            add_cmd(list, tab[i]);
-        else
-            i = maj_list_data(list, i, tab); //sinon on met à jour les données des élements existants (redirection, etc...)
+        sep[y] = tools->line[i];
+        y++;
         i++;
     }
-    return (list);
+    sep[y] = '\0';
+    return (sep);
 }

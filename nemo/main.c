@@ -5,97 +5,52 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: tcharbon <tcharbon@stud42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/06/11 12:40:30 by tcharbon          #+#    #+#             */
-/*   Updated: 2024/06/11 12:40:30 by tcharbon         ###   ########.fr       */
+/*   Created: 2024/08/05 17:14:17 by tcharbon          #+#    #+#             */
+/*   Updated: 2024/08/05 17:14:17 by tcharbon         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <readline/readline.h>
-#include <readline/history.h>
-//test préliminaires sur le tableau avant de créer la liste principale ?
-/*
-void    check_tab(char ***tab)
+
+int parse(t_tools *tools)
 {
-
-}
-*/
-
-//Noeud parsing
-// void    parse(char *line)
-// {
-//     char        ***commands;
-//     t_command  *list;
-
-//     commands = fill_tab(line); //on créer un big tableau
-//     //print_tab(commands);
-//     //check_tab(commands); //on peut commencer à checker des erreurs ?
-//     list = init_list(commands); //créer la liste chaînée centrale du parsing
-//     //une fois la liste chaînée des commandes à jour, vérifier pour chaque élements (commande) si on trouve bien le fichier dans les PATH sinon cmd inexistante
-
-//     return ;
-// }
-
-//lancement du shell, attente de saisie utilisateur
-
-int	ft_str_is_space(char *str)
-{
-	size_t	i;
-
-	if (str == NULL || str[0] == '\0')
-		return (0);
-	i = 0;
-	while(str[i])
-	{
-		if (str[i] != ' ' && str[i] != '\t' && str[i] != '\v'
-		&& str[i] != '\r' && str[i] != '\f' && str[i] != '\n')
-			return (0);
-        i++;
-	}
-	return (1);
-}
-void sigint_handler(int signo) 											//gere ctr-c
-{
-	if (signo == SIGINT)
-	{
-		printf("\n");
-		rl_replace_line("", 0); 										//efface ligne actuelle
-		rl_on_new_line();												//indique a readline de commencer une nouvelle ligne
-		rl_redisplay();													//reaffiche minishell :
-	}
+    if (init_list(tools, tools->line) == 0)             //tri la ligne d'entrée dans une liste chaînée (split par token puis par espace)
+        return (0);                                        //Si renvoi (0) c'est que des quotes sont pas fermées : message d'erreur + reset (mais pas d'exit total)
+    if (type_list(tools->list_cmd) == 0)                //Définition des types (0-NC, 4-cmd, 2-file, 3-pipe, 1-redir, 5-delim)
+        return (0);                                          //Si renvoi 0, erreur de syntaxe (2 token à coté) : message d'erreur + reset (mais pas d'exit total)
+    check_file(tools, tools->list_cmd);                //On check les file à plusieurs mots : cela signifie que des mots sont à replacer
+    if (setup_in_out(tools->list_cmd) == 0)              //on assigne les valeurs in et out de chaque élement cmd
+        return (0);                                         //si renvoi 0, erreur d'open file
+    return (1);
 }
 
-void sigquit_handler(int signo)											/* gere Ctrl-\ */
+int main(int argc, char **argv, char **envp)
 {
-    // Ne rien faire pour ignorer le signal
-}
+    t_tools     *tools;                            //structure globale
 
-int main(int argc, char **argv)
-{
-    char    *line;
-
-	signal(SIGINT, sigint_handler);
-	signal(SIGQUIT, sigquit_handler);									// pas besoin d implementer ??
+    signal(SIGINT, sigint_handler);
+	signal(SIGQUIT, sigquit_handler);
+    if (argc > 1)
+        return (0);
+    tools = init_tools(envp);                      //initialisation de la structure globale
     while (1)
     {
-        line = readline("MiniShell> ");
-        if (line == NULL)
-            exit(0);
-        if (strlen(line) > 0 && ft_str_is_space(line) == 0)                 // si lentree n est pas vide ni rempli d espace ajoute a l historique
-		    add_history(line);
-        if (ft_strcmp(line, "") == 0 || ft_str_is_space(line) == 1)
+        tools->line = readline("MiniShell> ");
+        if (tools->line == NULL)
+            ft_exit(tools, NULL, NULL);
+        if (tools->line[0] == '\0' || ft_str_is_space(tools->line) == 1)
+            free(tools->line);
+        else
         {
-		    free(line);														// besoin de free ?
-            continue;														// repete la boucle sans parse
-        }    
-    // parse(line);
-		free(line); 
+            add_history(tools->line); //a secure ?
+            if (parse(tools) != 0)
+            {
+                exec(tools, envp);
+                print_list(tools->list_cmd);
+            }
+            ft_reset(tools);   
+        }
     }
+    //free_total
     return (1);
 }
